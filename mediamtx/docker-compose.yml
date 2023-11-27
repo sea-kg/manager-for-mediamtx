@@ -7,5 +7,7 @@ services:
     network_mode: "host"
     volumes:
       - "./mediamtx.yml:/mediamtx.yml"
-      - "./mediamtx.log:/mediamtx.log"
+      - type: bind
+        source: ./mediamtx.log
+        target: /mediamtx.log
     restart: always

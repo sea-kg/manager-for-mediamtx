@@ -27,3 +27,10 @@ From mp4 to vp9 via ffmpeg
 ```
 $ ffmpeg -i video-files/channel_001.mp4 -c:v libvpx-vp9 -crf 30 -b:v 64k -bufsize 64k -an video-files/channel_001.webm
 ```
+
+
+## ffplay
+
+```
+$ ffplay -fflags nobuffer rtsp://localhost:8554/desktop1
+```
