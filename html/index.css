@@ -2,8 +2,50 @@
 body {
     color: #194385;
     background-color: #71bec1;
+    margin: 0px;
+    padding: 20px;
 }
 
 .video-file-info {
     border-top: 1px solid black;
+    padding-bottom: 20px;
+}
+
+.video-file-title {
+    padding: 5px;
+    margin-bottom: 10px;
+}
+
+.video-file-btn {
+    display: inline;
+    color: #afb9c9;
+    background-color: #194385;
+    padding: 5px;
+    border: 1px solid #435e87;
+    margin: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.video-file-btn:hover {
+    background-color: #012969;
+}
+
+#another_streams {
+    margin: 10px;
+    border-top: 1px solid black;
+}
+
+.video-file-command-stream {
+    padding: 5px;
+    border-bottom: 1px solid silver;
+    margin-bottom: 15px;
+}
+
+.video-file-command-stream .command {
+    padding: 5px;
+    font-family: monospace;
+    font-size: 10px;
+    background-color: black;
+    color: white;
 }

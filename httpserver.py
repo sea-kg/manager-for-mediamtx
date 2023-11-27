@@ -6,8 +6,6 @@ import json
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 
-
-
 def get_list_ffmpegs():
     result = subprocess.run(['ps', '-aux'], stdout=subprocess.PIPE)
     result = result.stdout.decode("utf-8")
@@ -21,8 +19,12 @@ def get_list_ffmpegs():
             _cmd = _line.split(" ")
             _cmd = list(filter(None, _cmd))
             _cmd_ffmpeg = _cmd[_cmd.index("ffmpeg"):]
+            _filename = ""
+            if "video-files/" in _line:
+                _filename = _line.split("video-files/")[1].split(" ")[0]
             stream_info = {
                 "original": _line,
+                "filename": _filename,
                 # "cmd": _cmd,
                 "command": " ".join(_cmd_ffmpeg),
                 "pid": _cmd[1],
@@ -45,6 +47,8 @@ def get_list_video_files():
     _files = os.listdir(_video_files)
     for _filepath in _files:
         _fullpath = os.path.join(_video_files, _filepath)
+        if _fullpath.endswith('.txt'):
+            continue
         if os.path.isfile(_fullpath):
             file_stats = os.stat(_fullpath)
             _file_info = {
@@ -115,6 +119,30 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(get_list_video_files()).encode("utf-8"))
+        elif _path == "/api/start-stream":
+            i = self.path.index ( "?" ) + 1
+            params = dict ( [ tuple ( p.split("=") ) for p in self.path[i:].split ( "&" ) ] )
+            _filename = params["filename"]
+            _protocol = params["protocol"]
+            _cmd = ""
+            _cmd += "ffmpeg -re -stream_loop -1 -i "
+            _cmd += " video-files/" + _filename + " "
+            _cmd += " -strict -2 " # need for vp9 experimental
+            _cmd += " -c:v copy -an -f rtsp -rtsp_transport " + _protocol + "  "
+            _cmd += " rtsp://localhost:8554/" + _filename
+            _cmd += " > video-files/" + _filename + ".txt 2>&1 &"
+            ret_code = os.system(_cmd)
+            ret = {
+                "exit_code": ret_code,
+                "command": _cmd,
+            }
+            if ret_code == 0:
+                self.send_response(200)
+            else:
+                self.send_response(400)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(ret).encode("utf-8"))
         else:
             self.send_response(404)
             self.send_header("Content-type", "text/html")
