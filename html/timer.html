@@ -1,0 +1,26 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Timer</title>
+    <script>
+        document.addEventListener("DOMContentLoaded", function(event) {
+            var timer = document.getElementById("_timer")
+            setInterval(function() {
+                var dt = new Date().toISOString();
+                dt = dt.split('T');
+                timer.innerHTML = dt[0] + '<br>' + dt[1];
+            }, 10);
+        });
+    </script>
+    <style>
+        .timer-spec {
+            font-size: 22px;
+        }
+    </style>
+</head>
+<body>
+<a href="./">back</a><br>
+Timer (current time!): <br>
+<div class="timer-spec" id="_timer"></div>
+</body>
+</html>
