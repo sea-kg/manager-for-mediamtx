@@ -3,3 +3,7 @@ body {
     color: #194385;
     background-color: #71bec1;
 }
+
+.video-file-info {
+    border-top: 1px solid black;
+}
