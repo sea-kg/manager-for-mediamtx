@@ -30,13 +30,24 @@ class HttpGetHandler(BaseHTTPRequestHandler):
         _path = os.path.normpath(_path)
         _filepath = os.path.join(_html_dir, _path[1:])
         if os.path.isfile(_filepath):
-            print(self.path, " -> ", _filepath)
+            # print(self.path, " -> ", _filepath)
             self.send_response(200)
-            self.send_header("Content-type", "text/html")
+            # https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
+            if _filepath.lower().endswith("html"):
+                self.send_header("Content-type", "text/html")
+            elif _filepath.lower().endswith("js"):
+                self.send_header("Content-type", "application/javascript")
+            elif _filepath.lower().endswith("png"):
+                self.send_header("Content-type", "image/png")
+            elif _filepath.lower().endswith("css"):
+                self.send_header("Content-type", "text/css")
+            else:
+                self.send_header("Content-type", "application/octet-stream")
+
             self.end_headers()
-            with open(_filepath, "r") as _file:
+            with open(_filepath, "rb") as _file:
                 _content = _file.read()
-                self.wfile.write(_content.encode("utf-8"))
+                self.wfile.write(_content)
         else:
             self.send_response(404)
             self.send_header("Content-type", "text/html")
