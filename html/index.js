@@ -86,6 +86,101 @@ function kill_stream(el) {
     })
 }
 
+var progress_bar_file_size = 0;
+var progress_bar_uploaded_chanks = 0;
+
+var upload_chanks = []
+
+function update_progress_bar() {
+    document.getElementById("progress_bar_value").style.width = Math.round((progress_bar_uploaded_chanks * 100) / progress_bar_file_size) + "%";
+}
+
+function start_upload_chanks_to_server() {
+    // console.log(upload_chanks)
+    var upload_next_chank = upload_chanks.pop();
+    if (upload_next_chank === undefined) return;
+    $.ajax({
+        url: '/api/upload-file?cmd=chank&fileid=' + upload_next_chank["fileid"] + "&pos=" + upload_next_chank["pos"] + "&data_len=" + upload_next_chank["data_len"],
+        method: 'post',
+        // dataType: 'application/octet-stream',
+        data: upload_next_chank.data,
+    }).fail(function(err) {
+        console.error("upload_file_to_server (chank)", err) // TODO show error
+    }).done(function(recive_data) {
+        // console.log(recive_data)
+        progress_bar_uploaded_chanks += upload_next_chank.data_len;
+        update_progress_bar();
+        setTimeout(start_upload_chanks_to_server, 1);
+    })
+}
+
+function upload_file_to_server(file_info, arr_buffer) {
+    var binary = '';
+    progress_bar_file_size = file_info.size;
+    progress_bar_uploaded_chanks = 0;
+    update_progress_bar();
+    $.ajax({
+        url: '/api/upload-file',
+        method: 'get',
+        dataType: 'json',
+        data: {
+            'cmd': 'init',
+            'filesize': file_info.size,
+            'filename': file_info.name,
+            'filetype': file_info.type,
+        },
+    }).fail(function(err) {
+        console.error("upload_file_to_server (init)", err) // TODO show error
+    }).done(function(data) {
+        console.log("upload_file_to_server (init)", data)
+        var bytes = new Uint8Array(arr_buffer);
+        var len = bytes.byteLength;
+        var pos = 0;
+        var chank_size = Math.round(len / 100);
+        upload_chanks = []
+        for (var i = 0; i < len; i++) {
+            binary += String.fromCharCode( bytes[ i ] );
+            if (binary.length >= chank_size) {
+                upload_chanks.push({
+                    'cmd': 'chank',
+                    'fileid': data["fileid"],
+                    'pos': pos,
+                    'data_len': binary.length,
+                    'data': binary,
+                })
+                binary = ""
+                pos = i;
+                // break;
+            }
+        }
+        if (binary.length > 0) {
+            upload_chanks.push({
+                'cmd': 'chank',
+                'fileid': data["fileid"],
+                'pos': pos,
+                'data_len': binary.length,
+                'data': binary,
+            })
+        }
+        console.log("Prepared chnaks to upload")
+        start_upload_chanks_to_server();
+    })
+}
+
+function upload_file(el) {
+    var file_to_upload_element = document.getElementById("file_to_upload");
+    let file_info = file_to_upload_element.files[0]
+
+    let reader = new FileReader();
+    reader.onload = (function(theFile) {
+        return function(e) {
+            upload_file_to_server(theFile, e.target.result)
+        };
+    })(file_info);
+    // reader.readAsText(file_info);
+    reader.readAsArrayBuffer(file_info);
+}
+
 function update_video_files() {
     $.ajax({
         url: '/api/video-files',

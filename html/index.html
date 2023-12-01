@@ -3,6 +3,7 @@
     <meta charset="utf-8"/>
     <title>Manager for mediamtx</title>
     <script src="./js/jquery-3.7.1.min.js"></script>
+    <script src="./js/md5.min.js"></script>
     <script src="./index.js?ver1"></script>
     <link rel="stylesheet" href="./index.css?ver=1" media="all">
 </head>
@@ -19,6 +20,13 @@ rtsp_server_ip: ??
 <hr>
 List of streams:
 <div id="list_of_files">
+</div>
+<div>
+    <input type="file" id="file_to_upload" value="">
+    <div class="video-file-btn" onclick="upload_file(this)">Upload</div>
+    <div class="progress-bar">
+        <div id="progress_bar_value" class="progress-bar-value"></div>
+    </div>
 </div>
 <hr>
 Another Streams: <br>

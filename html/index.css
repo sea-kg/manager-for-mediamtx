@@ -49,3 +49,17 @@ body {
     background-color: black;
     color: white;
 }
+
+.progress-bar {
+    background-color: black;
+    height: 25px;
+    width: 100%;
+    margin-top: 10px;
+    border: 1px solid white;
+}
+
+.progress-bar-value {
+    background-color: white;
+    height: 100%;
+    width: 0%;
+}

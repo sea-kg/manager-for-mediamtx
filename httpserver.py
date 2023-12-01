@@ -3,6 +3,9 @@
 import os
 import subprocess
 import json
+import hashlib
+import base64
+import urllib
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 
@@ -63,6 +66,13 @@ def get_list_video_files():
     ret['count'] = len(ret['list'])
     return ret
 
+def send_error(handler, code, message):
+    handler.send_response(code)
+    handler.send_header("Content-type", "application/json")
+    handler.end_headers()
+    response = {"error": message}
+    handler.wfile.write(json.dumps(response).encode("utf-8"))
+
 class HttpGetHandler(BaseHTTPRequestHandler):
     """
         handler for get requests
@@ -73,6 +83,7 @@ class HttpGetHandler(BaseHTTPRequestHandler):
         _script_dir = os.path.dirname(os.path.realpath(__file__))
         _script_dir = os.path.abspath(_script_dir)
         _html_dir = os.path.join(_script_dir, "html")
+        _upload_dir = os.path.join(_script_dir, "upload-files")
 
         _path = ""
         if '?' in self.path:
@@ -119,6 +130,54 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(get_list_video_files()).encode("utf-8"))
+        elif _path == "/api/upload-file":
+            params = self.path[self.path.index("?")+1:]
+            params = urllib.parse.parse_qs(params)
+            print(params)
+            if "cmd" not in params:
+                send_error(self, 400, "Expected input param cmd")
+                return
+
+            cmd = params["cmd"][0]
+            if cmd != "init" and cmd != "chank":
+                send_error(self, 400, "Expected input param cmd init or chank")
+                return
+            if cmd == "init":
+                fmeta = {
+                    "fileid": "",
+                    "filename": params["filename"][0],
+                    "filesize": int(params["filesize"][0]),
+                    "filetype": params["filetype"][0],
+                    "chanks": [],
+                }
+                if fmeta["filename"] is None:
+                    send_error(self, 400, "Expected input param filename")
+                    return
+                if fmeta["filesize"] is None:
+                    send_error(self, 400, "Expected input param filesize")
+                    return
+                if fmeta["filetype"] is None:
+                    send_error(self, 400, "Expected input param filetype")
+                    return
+                fmeta["fileid"] = hashlib.md5(fmeta["filename"].encode()).hexdigest()
+                fmeta_filepath = os.path.join(_upload_dir, fmeta["fileid"] + ".json")
+                if os.path.isfile(fmeta_filepath):
+                    os.remove(fmeta_filepath)
+                with open(fmeta_filepath, "wb") as _file:
+                    _file.write(json.dumps(fmeta, indent=4).encode("utf-8"))
+                target_file = os.path.join(_upload_dir, fmeta["fileid"] + ".data")
+                if os.path.isfile(target_file):
+                    os.remove(target_file)
+                with open(target_file, "wb") as _file:
+                    _file.seek(fmeta["filesize"]-1)
+                    _file.write(b"\0")
+                self.send_response(200)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(fmeta).encode("utf-8"))
+                return
+            send_error(self, 500, "what?")
+
         elif _path == "/api/start-stream":
             i = self.path.index ( "?" ) + 1
             params = dict ( [ tuple ( p.split("=") ) for p in self.path[i:].split ( "&" ) ] )
@@ -150,6 +209,62 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             self.wfile.write('<html><head><meta charset="utf-8">'.encode())
             self.wfile.write('<title>HTTP 404 - Not found.</title></head>'.encode())
             self.wfile.write('<body>HTTP 404 - Not found</body></html>'.encode())
+
+    def do_POST(self):
+        _script_dir = os.path.dirname(os.path.realpath(__file__))
+        _script_dir = os.path.abspath(_script_dir)
+        _html_dir = os.path.join(_script_dir, "html")
+        _upload_dir = os.path.join(_script_dir, "upload-files")
+
+        _path = ""
+        if '?' in self.path:
+            _path = self.path.split("?")[0]
+        if _path == "/api/upload-file":
+            params = self.path[self.path.index("?")+1:]
+            params = urllib.parse.parse_qs(params)
+            # print(params)
+            if "cmd" not in params:
+                send_error(self, 400, "Expected input param cmd")
+                return
+
+            cmd = params["cmd"][0]
+            if cmd != "init" and cmd != "chank":
+                send_error(self, 400, "Expected input param cmd init or chank")
+                return
+            if cmd == "chank":
+                fileid = params["fileid"][0]
+                pos = int(params["pos"][0])
+                data_len = int(params["data_len"][0])
+                target_file = os.path.join(_upload_dir, fileid + ".data")
+                if not os.path.isfile(target_file):
+                    send_error(self, 404, "Not found fileid=" + fileid)
+                    return
+                fmeta_filepath = os.path.join(_upload_dir, fileid + ".json")
+                if not os.path.isfile(fmeta_filepath):
+                    send_error(self, 404, "Not found fmeta_filepath = " + fmeta_filepath)
+                    return
+                content_len = int(self.headers['content-length'])
+                print(content_len)
+                print(data_len)
+                post_body = self.rfile.read(data_len)
+                print(len(post_body))
+                with open(target_file, "r+b") as _file:
+                    _file.seek(pos, 0)
+                    _file.write(post_body)
+                    with open(fmeta_filepath, "rt") as _file:
+                        fmeta = json.load(_file)
+                    fmeta["chanks"].append({
+                        "pos": pos,
+                        "len": len(post_body),
+                    })
+                    with open(fmeta_filepath, "wb") as _file:
+                        _file.write(json.dumps(fmeta, indent=4).encode("utf-8"))
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps(fmeta).encode("utf-8"))
+                return
+            send_error(self, 500, "what?")
 
 
 def run(server_class=HTTPServer, handler_class=HttpGetHandler):
