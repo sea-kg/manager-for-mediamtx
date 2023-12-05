@@ -6,6 +6,7 @@ import json
 import hashlib
 import base64
 import urllib
+import shutil
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 
@@ -25,9 +26,14 @@ def get_list_ffmpegs():
             _filename = ""
             if "video-files/" in _line:
                 _filename = _line.split("video-files/")[1].split(" ")[0]
+            _log_filepath = os.path.join('video-files', _filename + '.txt')
+            _log_size_in_bytes = 0
+            if os.path.isfile(_log_filepath):
+                _log_size_in_bytes = os.stat(_log_filepath).st_size
             stream_info = {
                 "original": _line,
                 "filename": _filename,
+                "logfile_size": _log_size_in_bytes,
                 # "cmd": _cmd,
                 "command": " ".join(_cmd_ffmpeg),
                 "pid": _cmd[1],
@@ -52,11 +58,15 @@ def get_list_video_files():
         _fullpath = os.path.join(_video_files, _filepath)
         if _fullpath.endswith('.txt'):
             continue
+        logfile_size = 0
+        if os.path.isfile(_fullpath + '.txt'):
+            logfile_size = os.stat(_fullpath + '.txt').st_size
         if os.path.isfile(_fullpath):
             file_stats = os.stat(_fullpath)
             _file_info = {
                 "size_in_bytes": file_stats.st_size,
                 "name": _filepath,
+                "logfile_size": logfile_size,
                 "ffprobe": {},
             }
             result = subprocess.run(['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', '-print_format', 'json', _fullpath], stdout=subprocess.PIPE)
@@ -73,6 +83,13 @@ def send_error(handler, code, message):
     response = {"error": message}
     handler.wfile.write(json.dumps(response).encode("utf-8"))
 
+
+def is_last_chank(fmeta):
+    _len = 0
+    for _chank in fmeta["chanks"]:
+        _len += _chank["len"]
+    return _len == fmeta["filesize"]
+
 class HttpGetHandler(BaseHTTPRequestHandler):
     """
         handler for get requests
@@ -84,6 +101,7 @@ class HttpGetHandler(BaseHTTPRequestHandler):
         _script_dir = os.path.abspath(_script_dir)
         _html_dir = os.path.join(_script_dir, "html")
         _upload_dir = os.path.join(_script_dir, "upload-files")
+        _video_files_dir = os.path.join(_script_dir, "video-files")
 
         _path = ""
         if '?' in self.path:
@@ -109,6 +127,15 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             else:
                 self.send_header("Content-type", "application/octet-stream")
             self.end_headers()
+            with open(_filepath, "rb") as _file:
+                _content = _file.read()
+                self.wfile.write(_content)
+        elif _path.startswith("/video-files"):
+            _filepath = os.path.join(_script_dir, _path[1:])
+            if _path.endswith('.txt'):
+                self.send_header("Content-type", "text/html")
+            else:
+                self.send_header("Content-type", "application/octet-stream")
             with open(_filepath, "rb") as _file:
                 _content = _file.read()
                 self.wfile.write(_content)
@@ -202,6 +229,16 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             self.send_header("Content-type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(ret).encode("utf-8"))
+        elif _path == "/api/kill-stream":
+            params = self.path[self.path.index("?")+1:]
+            params = urllib.parse.parse_qs(params)
+            pid = int(params["pid"][0])
+            command = "kill -9 " + str(pid)
+            ret = {}
+            ret["result"] = os.system(command)
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.wfile.write(json.dumps(ret).encode("utf-8"))
         else:
             self.send_response(404)
             self.send_header("Content-type", "text/html")
@@ -215,6 +252,7 @@ class HttpGetHandler(BaseHTTPRequestHandler):
         _script_dir = os.path.abspath(_script_dir)
         _html_dir = os.path.join(_script_dir, "html")
         _upload_dir = os.path.join(_script_dir, "upload-files")
+        _video_files_dir = os.path.join(_script_dir, "video-files")
 
         _path = ""
         if '?' in self.path:
@@ -273,6 +311,14 @@ class HttpGetHandler(BaseHTTPRequestHandler):
                     self.send_header("Content-type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps(fmeta).encode("utf-8"))
+                fmeta = None
+                with open(fmeta_filepath, "rt") as _file:
+                    fmeta = json.load(_file)
+                if is_last_chank(fmeta):
+                    fmeta["filename"]
+                    shutil.move(target_file, os.path.join(_video_files_dir, fmeta["filename"]))
+                    # os.remove(target_file)
+                    os.remove(fmeta_filepath)
                 return
             send_error(self, 500, "what?")
 

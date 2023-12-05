@@ -22,9 +22,25 @@ function update_list_of_streams() {
         dataType: 'json',
     }).done(function(data) {
         var another_streams_html = '';
+
+        var current_vfiles_ids = []
+        var vfilesinfo = document.getElementsByClassName('video-file-info');
+        for (var i = 0; i < vfilesinfo.length; ++i) {
+            current_vfiles_ids.push(vfilesinfo[i].getAttribute('id'));
+        }
+
+        // video_file_deepin-screen-recorder_unigine-main-python_x64_20221015172424.mp4
+
         var need_update_list_of_files = false;
         for (var i in data.list) {
             var _stream_info = data.list[i];
+            var main_elm_id = 'video_file_' + _stream_info.filename;
+            // console.log(main_elm_id)
+            var index = current_vfiles_ids.indexOf(main_elm_id);
+            if (index !== -1) {
+                current_vfiles_ids.splice(index, 1);
+            }
+
             var elm_id = 'video_file_' + _stream_info.filename + '_cmd_block';
             var elm = document.getElementById(elm_id)
             if (elm === undefined && _stream_info.filename != "") {
@@ -32,6 +48,7 @@ function update_list_of_streams() {
             }
             if (elm) {
                 elm.style.display = "";
+                document.getElementById('video_file_' + _stream_info.filename + '_log').innerHTML = 'log (' + human_file_size(_stream_info.logfile_size) + ')';
                 document.getElementById('video_file_' + _stream_info.filename + '_command').innerHTML = _stream_info.command;
                 document.getElementById('video_file_' + _stream_info.filename + '_info').innerHTML = 'CPU: ' + _stream_info.cpu + ' | Memory: ' + _stream_info.memory;
                 document.getElementById('video_file_' + _stream_info.filename + '_kill').style.display = '';
@@ -43,6 +60,10 @@ function update_list_of_streams() {
                 another_streams_html += '<div class="info">CPU: ' + _stream_info.cpu + ' | Memory: ' + _stream_info.memory + '</div>'
                 another_streams_html += '</div>'
             }
+        }
+        for (var i = 0; i < current_vfiles_ids.length; i++) {
+            document.getElementById(current_vfiles_ids[i] + '_cmd_block').style.display = 'none';
+            document.getElementById(current_vfiles_ids[i] + '_kill').style.display = 'none';
         }
         document.getElementById('another_streams').innerHTML = another_streams_html;
         // console.log(data)
@@ -72,6 +93,7 @@ function start_stream(filename, protocol) {
 }
 
 function kill_stream(el) {
+    console.log(el);
     $.ajax({
         url: '/api/kill-stream',
         method: 'get',
@@ -209,7 +231,9 @@ function update_video_files() {
             if (document.getElementById(new_elem_id) === null) {
                 _html = '';
                 _html += '<div class="video-file-info" id="' + new_elem_id + '">';
-                _html += '<div class="video-file-title">' + file_info.name + ' (' + human_file_size(file_info.size_in_bytes) + ')</div>';
+                _html += '<div class="video-file-title">' + file_info.name + ' (' + human_file_size(file_info.size_in_bytes) + ') ';
+                _html += '<a target="_blank" href="video-files/' + file_info.name + '.txt" id="' + new_elem_id + '_log" class="video-file-log">log (' + human_file_size(file_info.logfile_size) + ')</a>';
+                _html += '</div>';
                 _html += '<div class="video-file-command-stream" id="video_file_' + file_info.name + '_cmd_block" style="display: none">'
                 _html += '   <div class="command" id="video_file_' + file_info.name + '_command"></div>'
                 _html += '   <div class="info" id="video_file_' + file_info.name + '_info"></div>'

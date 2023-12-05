@@ -161,6 +161,7 @@ cython_debug/
 
 # current project
 video-files/*.txt
+video-files/*.mp4
 upload-files/*.data
 upload-files/*.json
 upload-files/*.mp4
