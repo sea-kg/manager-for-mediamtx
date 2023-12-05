@@ -98,12 +98,17 @@ function update_progress_bar() {
 function start_upload_chanks_to_server() {
     // console.log(upload_chanks)
     var upload_next_chank = upload_chanks.pop();
-    if (upload_next_chank === undefined) return;
+    if (upload_next_chank === undefined) {
+        document.getElementById("progress_bar_1").style.display = "none";
+        return;
+    }
     $.ajax({
-        url: '/api/upload-file?cmd=chank&fileid=' + upload_next_chank["fileid"] + "&pos=" + upload_next_chank["pos"] + "&data_len=" + upload_next_chank["data_len"],
+        url: '/api/upload-file?cmd=chank&fileid=' + upload_next_chank["fileid"] + "&pos=" + upload_next_chank["pos"] + "&data_len=" + upload_next_chank["data_len"] + "&md5=" + upload_next_chank["md5"],
         method: 'post',
         // dataType: 'application/octet-stream',
         data: upload_next_chank.data,
+        processData: false,
+        // contentType: false,
     }).fail(function(err) {
         console.error("upload_file_to_server (chank)", err) // TODO show error
     }).done(function(recive_data) {
@@ -115,6 +120,7 @@ function start_upload_chanks_to_server() {
 }
 
 function upload_file_to_server(file_info, arr_buffer) {
+    document.getElementById("progress_bar_1").style.display = "block";
     var binary = '';
     progress_bar_file_size = file_info.size;
     progress_bar_uploaded_chanks = 0;
@@ -137,29 +143,36 @@ function upload_file_to_server(file_info, arr_buffer) {
         var len = bytes.byteLength;
         var pos = 0;
         var chank_size = Math.round(len / 100);
-        upload_chanks = []
+        chank_size = Math.min(512*1024, chank_size); // min 512k or 1/100 part
+        upload_chanks = [];
+        var chank_data = [];
         for (var i = 0; i < len; i++) {
-            binary += String.fromCharCode( bytes[ i ] );
-            if (binary.length >= chank_size) {
+            chank_data.push(bytes[i])
+            if (chank_data.length >= chank_size) {
+                var chank_data_array = new Uint8Array(chank_data);
                 upload_chanks.push({
                     'cmd': 'chank',
                     'fileid': data["fileid"],
                     'pos': pos,
-                    'data_len': binary.length,
-                    'data': binary,
+                    'data_len': chank_data.length,
+                    'data': chank_data_array,
+                    'md5': md5(chank_data_array),
                 })
                 binary = ""
-                pos = i;
+                chank_data = [];
+                pos = i+1;
                 // break;
             }
         }
-        if (binary.length > 0) {
+        if (chank_data.length > 0) {
+            var chank_data_array = new Uint8Array(chank_data);
             upload_chanks.push({
                 'cmd': 'chank',
                 'fileid': data["fileid"],
                 'pos': pos,
-                'data_len': binary.length,
-                'data': binary,
+                'data_len': chank_data.length,
+                'data': new Uint8Array(chank_data),
+                'md5': md5(chank_data),
             })
         }
         console.log("Prepared chnaks to upload")

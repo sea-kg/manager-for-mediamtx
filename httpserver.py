@@ -228,27 +228,37 @@ class HttpGetHandler(BaseHTTPRequestHandler):
                 return
 
             cmd = params["cmd"][0]
-            if cmd != "init" and cmd != "chank":
-                send_error(self, 400, "Expected input param cmd init or chank")
+            if cmd != "chank":
+                send_error(self, 400, "Expected input param cmd chank")
                 return
             if cmd == "chank":
                 fileid = params["fileid"][0]
                 pos = int(params["pos"][0])
                 data_len = int(params["data_len"][0])
+                md5_data = params["md5"][0]
                 target_file = os.path.join(_upload_dir, fileid + ".data")
                 if not os.path.isfile(target_file):
-                    send_error(self, 404, "Not found fileid=" + fileid)
+                    send_error(self, 400, "Not found fileid=" + fileid)
                     return
                 fmeta_filepath = os.path.join(_upload_dir, fileid + ".json")
                 if not os.path.isfile(fmeta_filepath):
                     send_error(self, 404, "Not found fmeta_filepath = " + fmeta_filepath)
                     return
                 content_len = int(self.headers['content-length'])
-                print(content_len)
-                print(data_len)
-                post_body = self.rfile.read(data_len)
-                print(len(post_body))
+                if content_len != data_len:
+                    send_error(self, 404, "Content-Length (" + str(content_len) + ") mismatch with data_len (" + str(data_len) + ")")
+                    return
+                # print(content_len)
+                # print(data_len)
+                post_body = self.rfile.read(content_len)
+                # print(len(post_body))
                 with open(target_file, "r+b") as _file:
+                    got_md5_data = hashlib.md5(post_body).hexdigest()
+                    if got_md5_data != md5_data:
+                        print("got_md5_data: " + got_md5_data)
+                        print("md5_data: " + md5_data)
+                        send_error(self, 400, "failed chank by position " + str(pos) + " mismatch md5 by client (" + md5_data + ") and current calucaltion " + got_md5_data)
+                        return
                     _file.seek(pos, 0)
                     _file.write(post_body)
                     with open(fmeta_filepath, "rt") as _file:
