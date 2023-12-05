@@ -49,7 +49,10 @@ function update_list_of_streams() {
             if (elm) {
                 elm.style.display = "";
                 document.getElementById('video_file_' + _stream_info.filename + '_log').innerHTML = 'log (' + human_file_size(_stream_info.logfile_size) + ')';
-                document.getElementById('video_file_' + _stream_info.filename + '_command').innerHTML = _stream_info.command;
+                var prev_command = document.getElementById('video_file_' + _stream_info.filename + '_command').innerHTML;
+                if (prev_command != _stream_info.command) {
+                    document.getElementById('video_file_' + _stream_info.filename + '_command').innerHTML = _stream_info.command;
+                }
                 document.getElementById('video_file_' + _stream_info.filename + '_info').innerHTML = 'CPU: ' + _stream_info.cpu + ' | Memory: ' + _stream_info.memory;
                 document.getElementById('video_file_' + _stream_info.filename + '_kill').style.display = '';
                 document.getElementById('video_file_' + _stream_info.filename + '_kill').setAttribute("pid", _stream_info.pid);
