@@ -112,6 +112,11 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             _path = "/index.html"
         _path = os.path.normpath(_path)
         _filepath = os.path.join(_html_dir, _path[1:])
+        params = {}
+        if "?" in self.path:
+            params = self.path[self.path.index("?")+1:]
+            params = urllib.parse.parse_qs(params)
+            print(params)
         if os.path.isfile(_filepath):
             # print(self.path, " -> ", _filepath)
             self.send_response(200)
@@ -158,13 +163,9 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(get_list_video_files()).encode("utf-8"))
         elif _path == "/api/upload-file":
-            params = self.path[self.path.index("?")+1:]
-            params = urllib.parse.parse_qs(params)
-            print(params)
             if "cmd" not in params:
                 send_error(self, 400, "Expected input param cmd")
                 return
-
             cmd = params["cmd"][0]
             if cmd != "init" and cmd != "chank":
                 send_error(self, 400, "Expected input param cmd init or chank")
@@ -206,10 +207,8 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             send_error(self, 500, "what?")
 
         elif _path == "/api/start-stream":
-            i = self.path.index ( "?" ) + 1
-            params = dict ( [ tuple ( p.split("=") ) for p in self.path[i:].split ( "&" ) ] )
-            _filename = params["filename"]
-            _protocol = params["protocol"]
+            _filename = params["filename"][0]
+            _protocol = params["protocol"][0]
             _cmd = ""
             _cmd += "ffmpeg -re -stream_loop -1 -i "
             _cmd += " video-files/" + _filename + " "
@@ -236,6 +235,17 @@ class HttpGetHandler(BaseHTTPRequestHandler):
             command = "kill -9 " + str(pid)
             ret = {}
             ret["result"] = os.system(command)
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.wfile.write(json.dumps(ret).encode("utf-8"))
+        elif _path == "/api/delete-video-file":
+            filename = params["filename"][0]
+            filepath = os.path.join(_video_files_dir, filename)
+            ret = {
+                "filename": filename,
+            }
+            if os.path.isfile(filepath):
+                os.remove(filepath)
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.wfile.write(json.dumps(ret).encode("utf-8"))

@@ -111,6 +111,22 @@ function kill_stream(el) {
     })
 }
 
+function delete_video_file(filename) {
+    console.log("delete_video_file", filename);
+    $.ajax({
+        url: '/api/delete-video-file',
+        method: 'get',
+        dataType: 'json',
+        data: {
+            'filename': filename,
+        },
+    }).done(function(data) {
+        console.log("delete_video_file", data)
+    }).fail(function(err) {
+        console.error("delete_video_file", err) // TODO show error
+    })
+}
+
 var progress_bar_file_size = 0;
 var progress_bar_uploaded_chanks = 0;
 
@@ -235,7 +251,8 @@ function update_video_files() {
                 _html = '';
                 _html += '<div class="video-file-info" id="' + new_elem_id + '">';
                 _html += '<div class="video-file-title">' + file_info.name + ' (' + human_file_size(file_info.size_in_bytes) + ') ';
-                _html += '<a target="_blank" href="video-files/' + file_info.name + '.txt" id="' + new_elem_id + '_log" class="video-file-log">log (' + human_file_size(file_info.logfile_size) + ')</a>';
+                _html += '  <a target="_blank" href="video-files/' + file_info.name + '.txt" id="' + new_elem_id + '_log" class="video-file-log">log (' + human_file_size(file_info.logfile_size) + ')</a>';
+                _html += '  <div class="video-file-btn" id="video_file_' + file_info.name + '_delete" onclick="delete_video_file(\'' + file_info.name + '\');">delete video file</div>';
                 _html += '</div>';
                 _html += '<div class="video-file-command-stream" id="video_file_' + file_info.name + '_cmd_block" style="display: none">'
                 _html += '   <div class="command" id="video_file_' + file_info.name + '_command"></div>'
